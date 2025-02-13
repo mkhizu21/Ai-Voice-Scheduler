@@ -10,7 +10,6 @@ from google.oauth2 import service_account
 from datetime import datetime, timedelta
 from dotenv import load_dotenv  # ✅ Import dotenv
 
-# ✅ Load environment variables
 load_dotenv()
 
 # ✅ Get values from .env
