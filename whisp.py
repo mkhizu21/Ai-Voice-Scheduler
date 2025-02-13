@@ -12,8 +12,16 @@ import json
 
 load_dotenv()
 
-# ✅ Get values from .env
-SERVICE_ACCOUNT_FILE = {
+import streamlit as st
+import whisper
+import dateparser
+import os
+from googleapiclient.discovery import build
+from google.oauth2 import service_account
+from datetime import datetime, timedelta
+
+# ✅ Load Google credentials from Streamlit secrets
+service_account_info = {
     "type": st.secrets["google"]["type"],
     "project_id": st.secrets["google"]["project_id"],
     "private_key_id": st.secrets["google"]["private_key_id"],
@@ -26,6 +34,8 @@ SERVICE_ACCOUNT_FILE = {
     "client_x509_cert_url": st.secrets["google"]["client_x509_cert_url"],
 }
 
+creds = service_account.Credentials.from_service_account_info(service_account_info)
+
 CALENDAR_ID = st.secrets["google"]["CALENDAR_ID"]
 
 # Load Whisper Model
@@ -36,7 +46,6 @@ def load_model():
 model = load_model()
 
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
-creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
 service = build("calendar", "v3", credentials=creds)
 
 # Streamlit UI
