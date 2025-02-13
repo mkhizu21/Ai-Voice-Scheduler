@@ -23,7 +23,6 @@ def load_model():
 
 model = load_model()
 
-# ✅ Google Calendar API Setup
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
 service = build("calendar", "v3", credentials=creds)
