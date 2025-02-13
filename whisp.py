@@ -3,77 +3,63 @@ import whisper
 import dateparser
 import re
 import os
+import tempfile  # ✅ Handle temp file properly
 import subprocess  # ✅ Use subprocess for ffmpeg recording
-from googleapiclient.discovery import build
-from google.oauth2 import service_account
-from datetime import datetime, timedelta
-from dotenv import load_dotenv  
-import json
-
-load_dotenv()
-
-import streamlit as st
-import whisper
-import dateparser
-import os
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from datetime import datetime, timedelta
 
 # ✅ Load Google credentials from Streamlit secrets
-service_account_info = {
-    "type": st.secrets["google"]["type"],
-    "project_id": st.secrets["google"]["project_id"],
-    "private_key_id": st.secrets["google"]["private_key_id"],
-    "private_key": st.secrets["google"]["private_key"],
-    "client_email": st.secrets["google"]["client_email"],
-    "client_id": st.secrets["google"]["client_id"],
-    "auth_uri": st.secrets["google"]["auth_uri"],
-    "token_uri": st.secrets["google"]["token_uri"],
-    "auth_provider_x509_cert_url": st.secrets["google"]["auth_provider_x509_cert_url"],
-    "client_x509_cert_url": st.secrets["google"]["client_x509_cert_url"],
-}
-
+service_account_info = st.secrets["google"]
 creds = service_account.Credentials.from_service_account_info(service_account_info)
-
 CALENDAR_ID = st.secrets["google"]["CALENDAR_ID"]
 
-# Load Whisper Model
+# ✅ Load Whisper Model
 @st.cache_resource
 def load_model():
     return whisper.load_model("small")
 
 model = load_model()
 
+# ✅ Initialize Google Calendar API
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 service = build("calendar", "v3", credentials=creds)
 
-# Streamlit UI
-st.title("Live Audio to Google Calendar Scheduler")
-st.write("Current Directory Files:", os.listdir())
+# ✅ Streamlit UI
+st.title("🎙 Live Audio to Google Calendar Scheduler")
+
 # Recording Configuration
-DURATION = st.slider("Select recording duration (seconds)", 5, 60, 10)
-FILENAME = "live_recording.wav"
+DURATION = st.slider("⏳ Select recording duration (seconds)", 5, 60, 10)
 
-# Function to record audio using ffmpeg
-def record_audio(filename, duration=5):
-    st.info("Recording... Please speak now.")
-    command = f"ffmpeg -y -f avfoundation -i :0 -t {duration} {filename}"  # For MacOS
-    # Use this instead for Linux: command = f"ffmpeg -y -f alsa -i default -t {duration} {filename}"
+# ✅ Function to record audio using ffmpeg
+def record_audio(duration=5):
+    st.toast("🎤 Recording... Please speak now.")
+
+    # ✅ Create a persistent temporary file
+    fd, temp_audio_path = tempfile.mkstemp(suffix=".wav")
+    os.close(fd)  # Close the file descriptor
+
+    # ✅ Choose ffmpeg input based on OS
+    if os.name == "posix":  # Linux/macOS
+        command = f"ffmpeg -y -f alsa -i default -t {duration} {temp_audio_path}"  # ✅ Linux/macOS
+    else:  # Windows (modify if needed)
+        command = f"ffmpeg -y -f dshow -i audio=\"Microphone\" -t {duration} {temp_audio_path}"  # ✅ Windows
+
     subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    st.success("Recording complete. Processing...")
 
-if st.button("Start Recording"):
-    record_audio(FILENAME, DURATION)
+    st.toast("✅ Recording complete. Processing...")
+    return temp_audio_path
 
-    # Transcribe Audio
+if st.button("🎤 Start Recording"):
+    # ✅ Record and get file path
+    FILENAME = record_audio(DURATION)
+
+    # ✅ Transcribe Audio
     result = model.transcribe(FILENAME, task="translate")
     command_text = result["text"]
-    st.success(f"Translated Command: {command_text}")
+    st.success(f"📝 Translated Command: {command_text}")
 
-    # Process and schedule event...
-
-    # Extract Date & Time
+    # ✅ Extract Date & Time
     def extract_date_time(text):
         today = datetime.now()
         tomorrow = today + timedelta(days=1)
@@ -122,11 +108,11 @@ if st.button("Start Recording"):
 
     event_time = extract_date_time(command_text)
     if event_time is None:
-        st.error("Could not extract a valid date/time from the command.")
+        st.error("❌ Could not extract a valid date/time from the command.")
     else:
-        st.write(f"Parsed Date & Time: {event_time}")
+        st.write(f"📅 Parsed Date & Time: {event_time}")
 
-        # Extract Event Summary
+        # ✅ Extract Event Summary
         def extract_event_summary(text):
             time_keywords = ["schedule", "meeting", "appointment", "reminder", "on", "at", 
                              "tomorrow", "next", "in", "am", "pm", "today", "morning", "evening", "night", "week", "month"]
@@ -136,9 +122,9 @@ if st.button("Start Recording"):
             return event_summary if event_summary else "Meeting"
 
         event_summary = extract_event_summary(command_text)
-        st.write(f"Extracted Event Summary: {event_summary}")
+        st.write(f"📝 Extracted Event Summary: {event_summary}")
 
-        # Create Event
+        # ✅ Create Google Calendar Event
         event = {
             "summary": event_summary,
             "start": {"dateTime": event_time.isoformat(), "timeZone": "Asia/Karachi"},
@@ -146,4 +132,7 @@ if st.button("Start Recording"):
         }
 
         event_result = service.events().insert(calendarId=CALENDAR_ID, body=event).execute()
-        st.success(f"✅ Event Created: [View Event]({event_result['htmlLink']})")
+        st.success(f"✅ Event Created: [📅 View Event]({event_result['htmlLink']})")
+
+    # ✅ Cleanup temp file
+    os.remove(FILENAME)
