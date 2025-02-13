@@ -50,7 +50,7 @@ service = build("calendar", "v3", credentials=creds)
 
 # Streamlit UI
 st.title("Live Audio to Google Calendar Scheduler")
-
+st.write("Current Directory Files:", os.listdir())
 # Recording Configuration
 DURATION = st.slider("Select recording duration (seconds)", 5, 60, 10)
 FILENAME = "live_recording.wav"
