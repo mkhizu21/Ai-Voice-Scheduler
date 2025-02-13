@@ -14,6 +14,21 @@ service_account_info = st.secrets["google"]
 creds = service_account.Credentials.from_service_account_info(service_account_info)
 CALENDAR_ID = st.secrets["google"]["CALENDAR_ID"]
 
+# Check if ffmpeg is installed
+def check_ffmpeg():
+    try:
+        result = subprocess.run(["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if result.returncode == 0:
+            st.success("✅ ffmpeg is installed on Streamlit Cloud!")
+            st.text(result.stdout.split("\n")[0])  # Show version
+        else:
+            st.error("❌ ffmpeg is NOT installed.")
+    except FileNotFoundError:
+        st.error("❌ ffmpeg is NOT found. Streamlit Cloud may not have it.")
+
+check_ffmpeg()
+
+
 # ✅ Load Whisper Model
 @st.cache_resource
 def load_model():
