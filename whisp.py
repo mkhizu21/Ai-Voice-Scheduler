@@ -7,7 +7,7 @@ import tempfile
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from datetime import datetime, timedelta
-from streamlit_audio_recorder import st_audio_recorder  # ✅ Import audio recorder
+from streamlit_mic_recorder import mic_recorder  # ✅ Import microphone recorder
 
 # ✅ Load Google credentials from Streamlit secrets
 service_account_info = st.secrets["google"]
@@ -28,18 +28,18 @@ service = build("calendar", "v3", credentials=creds)
 # ✅ Streamlit UI
 st.title("🎙 Live Audio to Google Calendar Scheduler")
 
-# Recording Configuration
-st.write("Click the button below and speak your command to schedule an event.")
+# ✅ Record Audio
+st.write("Press 'Start Recording', speak your command, then click 'Stop Recording'.")
 
-# ✅ Record audio using streamlit_audio_recorder
-audio_bytes = st_audio_recorder(pause_threshold=5.0)
+# 🔴 Start recording
+audio = mic_recorder(start_prompt="🎤 Start Recording", stop_prompt="⏹ Stop Recording")
 
-if audio_bytes:
+if audio:
     st.success("✅ Recording complete. Processing...")
 
     # ✅ Save the recorded audio to a temporary file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
-        temp_audio.write(audio_bytes)
+        temp_audio.write(audio)
         temp_audio_path = temp_audio.name
 
     # ✅ Transcribe Audio
@@ -52,31 +52,25 @@ if audio_bytes:
         today = datetime.now()
         tomorrow = today + timedelta(days=1)
 
-        # Normalize "today" and "tomorrow"
         text = text.lower()
         if "tomorrow" in text:
-            return tomorrow.replace(hour=9, minute=0)  # Default to 9 AM
+            return tomorrow.replace(hour=9, minute=0)  # Default: 9 AM
         elif "today" in text:
-            return today.replace(hour=9, minute=0)  # Default to 9 AM
+            return today.replace(hour=9, minute=0)
 
-        # Remove ordinal suffixes (st, nd, rd, th)
         text = re.sub(r'(\d{1,2})(st|nd|rd|th)', r'\1', text)
 
-        # Extract time (e.g., "8 pm")
         time_match = re.search(r'(\d{1,2})\s?(am|pm)', text, re.IGNORECASE)
         extracted_time = None
         if time_match:
             hour = int(time_match.group(1))
             period = time_match.group(2).lower()
-
             if period == "pm" and hour != 12:
                 hour += 12
             elif period == "am" and hour == 12:
                 hour = 0
-
             extracted_time = hour
 
-        # Extract date separately (e.g., "16 February")
         date_match = re.search(r'(\d{1,2})\s+(january|february|march|april|may|june|july|august|september|october|november|december)', text, re.IGNORECASE)
         extracted_date = None
         if date_match:
@@ -84,30 +78,26 @@ if audio_bytes:
             month = date_match.group(2).capitalize()
             extracted_date = dateparser.parse(f"{day} {month} {today.year}", settings={"PREFER_DATES_FROM": "future"})
 
-        # Merge extracted date and time
         if extracted_date and extracted_time is not None:
             event_time = extracted_date.replace(hour=extracted_time, minute=0)
         elif extracted_date:
-            event_time = extracted_date.replace(hour=9, minute=0)  # Default time: 9 AM
+            event_time = extracted_date.replace(hour=9, minute=0)  # Default: 9 AM
         else:
-            event_time = None  # Unable to parse
+            event_time = None
 
         return event_time
 
     event_time = extract_date_time(command_text)
     if event_time is None:
-        st.error("❌ Could not extract a valid date/time from the command.")
+        st.error("❌ Could not extract a valid date/time.")
     else:
         st.write(f"📅 Parsed Date & Time: {event_time}")
 
         # ✅ Extract Event Summary
         def extract_event_summary(text):
-            time_keywords = ["schedule", "meeting", "appointment", "reminder", "on", "at", 
-                            "tomorrow", "next", "in", "am", "pm", "today", "morning", "evening", "night", "week", "month"]
+            time_keywords = ["schedule", "meeting", "appointment", "reminder", "on", "at", "tomorrow", "next", "in", "am", "pm", "today", "morning", "evening", "night", "week", "month"]
             event_summary = re.sub(r'\b(?:' + '|'.join(time_keywords) + r')\b', '', text, flags=re.IGNORECASE)
-            event_summary = event_summary.strip()
-
-            return event_summary if event_summary else "Meeting"
+            return event_summary.strip() if event_summary.strip() else "Meeting"
 
         event_summary = extract_event_summary(command_text)
         st.write(f"📝 Extracted Event Summary: {event_summary}")
