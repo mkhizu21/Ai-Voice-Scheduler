@@ -2,8 +2,8 @@ import streamlit as st
 import whisper
 import dateparser
 import re
-import sounddevice as sd
-import wavio
+import pyaudio
+import wave
 import os
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
@@ -33,20 +33,36 @@ st.title("Live Audio to Google Calendar Scheduler")
 # Recording Configuration
 DURATION = st.slider("Select recording duration (seconds)", 5, 60, 10)
 SAMPLE_RATE = 44100
+FILENAME = "live_recording.wav"
 
-if st.button("Start Recording"):
+# Function to record audio using PyAudio
+def record_audio(filename, duration=5, sample_rate=44100):
+    audio = pyaudio.PyAudio()
+    stream = audio.open(format=pyaudio.paInt16, channels=1, rate=sample_rate, input=True, frames_per_buffer=1024)
+    frames = []
+
     st.info("Recording... Please speak now.")
-    recording = sd.rec(int(DURATION * SAMPLE_RATE), samplerate=SAMPLE_RATE, channels=1)
-    sd.wait()
-    
-    # Save the recording temporarily
-    wav_filename = "live_recording.wav"
-    wavio.write(wav_filename, recording, SAMPLE_RATE, sampwidth=2)
+    for _ in range(0, int(sample_rate / 1024 * duration)):
+        data = stream.read(1024)
+        frames.append(data)
+
+    stream.stop_stream()
+    stream.close()
+    audio.terminate()
+
+    with wave.open(filename, 'wb') as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(audio.get_sample_size(pyaudio.paInt16))
+        wf.setframerate(sample_rate)
+        wf.writeframes(b''.join(frames))
 
     st.success("Recording complete. Processing...")
 
+if st.button("Start Recording"):
+    record_audio(FILENAME, DURATION, SAMPLE_RATE)
+
     # Transcribe Audio
-    result = model.transcribe(wav_filename, task="translate")
+    result = model.transcribe(FILENAME, task="translate")
     command_text = result["text"]
     st.success(f"Translated Command: {command_text}")
 
