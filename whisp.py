@@ -2,13 +2,12 @@ import streamlit as st
 import whisper
 import dateparser
 import re
-import pyaudio
-import wave
 import os
+import subprocess  # ✅ Use subprocess for ffmpeg recording
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from datetime import datetime, timedelta
-from dotenv import load_dotenv  # ✅ Import dotenv
+from dotenv import load_dotenv  
 
 load_dotenv()
 
@@ -32,39 +31,25 @@ st.title("Live Audio to Google Calendar Scheduler")
 
 # Recording Configuration
 DURATION = st.slider("Select recording duration (seconds)", 5, 60, 10)
-SAMPLE_RATE = 44100
 FILENAME = "live_recording.wav"
 
-# Function to record audio using PyAudio
-def record_audio(filename, duration=5, sample_rate=44100):
-    audio = pyaudio.PyAudio()
-    stream = audio.open(format=pyaudio.paInt16, channels=1, rate=sample_rate, input=True, frames_per_buffer=1024)
-    frames = []
-
+# Function to record audio using ffmpeg
+def record_audio(filename, duration=5):
     st.info("Recording... Please speak now.")
-    for _ in range(0, int(sample_rate / 1024 * duration)):
-        data = stream.read(1024)
-        frames.append(data)
-
-    stream.stop_stream()
-    stream.close()
-    audio.terminate()
-
-    with wave.open(filename, 'wb') as wf:
-        wf.setnchannels(1)
-        wf.setsampwidth(audio.get_sample_size(pyaudio.paInt16))
-        wf.setframerate(sample_rate)
-        wf.writeframes(b''.join(frames))
-
+    command = f"ffmpeg -y -f avfoundation -i :0 -t {duration} {filename}"  # For MacOS
+    # Use this instead for Linux: command = f"ffmpeg -y -f alsa -i default -t {duration} {filename}"
+    subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     st.success("Recording complete. Processing...")
 
 if st.button("Start Recording"):
-    record_audio(FILENAME, DURATION, SAMPLE_RATE)
+    record_audio(FILENAME, DURATION)
 
     # Transcribe Audio
     result = model.transcribe(FILENAME, task="translate")
     command_text = result["text"]
     st.success(f"Translated Command: {command_text}")
+
+    # Process and schedule event...
 
     # Extract Date & Time
     def extract_date_time(text):
