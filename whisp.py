@@ -8,12 +8,13 @@ from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from datetime import datetime, timedelta
 from dotenv import load_dotenv  
+import json
 
 load_dotenv()
 
 # ✅ Get values from .env
-SERVICE_ACCOUNT_FILE = os.getenv("SERVICE_ACCOUNT_FILE")
-CALENDAR_ID = os.getenv("CALENDAR_ID")
+SERVICE_ACCOUNT_FILE = json.loads(st.secrets["google"]["service_account_json"])
+CALENDAR_ID = st.secrets["google"]["CALENDAR_ID"]
 
 # Load Whisper Model
 @st.cache_resource
