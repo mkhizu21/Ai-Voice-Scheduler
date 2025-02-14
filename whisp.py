@@ -37,6 +37,8 @@ audio = mic_recorder(start_prompt="🎤 Start Recording", stop_prompt="⏹ Stop 
 if audio:
     st.success("✅ Recording complete. Processing...")
 
+    audio_bytes = audio["bytes"]
+
     # ✅ Save the recorded audio to a temporary file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
         temp_audio.write(audio)
