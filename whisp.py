@@ -41,7 +41,7 @@ if audio:
 
     # ✅ Save the recorded audio to a temporary file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
-        temp_audio.write(audio)
+        temp_audio.write(audio_bytes)
         temp_audio_path = temp_audio.name
 
     # ✅ Transcribe Audio
